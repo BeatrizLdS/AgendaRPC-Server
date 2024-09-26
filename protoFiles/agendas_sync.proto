@@ -1,0 +1,23 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+
+package agenda_sync;
+
+service SyncAgendaService {
+    rpc SyncAgendas(SyncContactsList) returns (SyncResponse);
+    rpc SyncFromOthers(google.protobuf.Empty) returns (SyncContactsList);
+}
+
+message SyncResponse {
+    bool isSuccess = 1;
+    string description = 2; // Mensagem de resposta
+}
+
+message SyncContact {
+  string name = 1; 
+  string phone = 2; 
+}
+
+message SyncContactsList {
+  repeated SyncContact contacts = 1; 
+}
