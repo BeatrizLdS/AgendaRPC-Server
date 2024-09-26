@@ -1,10 +1,10 @@
-import grpc
-import google.protobuf.empty_pb2 as empty_pb2
 from concurrent import futures
 from repository import Repository
 from model.agenda import Agenda
 import gRPCModels.sync.agendas_sync_pb2 as sync_models
 import gRPCModels.sync.agendas_sync_pb2_grpc as sync_grpc
+import grpc
+import google.protobuf.empty_pb2 as empty_pb2
 
 def sync_agendas():
     repository = Repository.get_instace()
@@ -33,12 +33,10 @@ def sync_agendas():
                 print(f"Falha ao sincronizar com {remote_agenda}: {response.description}")
             
         except Exception as e:
-            print(f"Erro ao tentar sincronizar com {remote_agenda}: {e}")
+            print(f"Erro ao tentar sincronizar com {remote_agenda}")
             continue
 
 def sync_with_other_agendas():
-    print("Entrou para executar o sync self")
-    """ Lógica para sincronizar com outras agendas fora do contexto gRPC """
     repository = Repository.get_instace()
     local_agenda = repository.get_agenda()
     
@@ -52,15 +50,12 @@ def sync_with_other_agendas():
         try:
             channel = grpc.insecure_channel(f'localhost:{port_mapping[str(remote_agenda)]}')
             stub = sync_grpc.SyncAgendaServiceStub(channel)
-            
-            response = stub.SyncFromOthers(empty_pb2.Empty())
-            
+            response = stub.SyncFromOthers(empty_pb2.Empty())            
             repository.replace_all_with_sync(response)
             print(f"Sincronizado com sucesso da agenda {remote_agenda}.")
             break 
             
         except Exception as e:
-            print(f"Erro ao tentar sincronizar com {remote_agenda}: {e}")
             continue
 
 class SyncAgendaService(sync_grpc.SyncAgendaServiceServicer):
@@ -69,12 +64,18 @@ class SyncAgendaService(sync_grpc.SyncAgendaServiceServicer):
     # rpc SyncFromOthers(google.protobuf.Empty) returns (SyncContactsList);
     
     def SyncAgendas(self, request, context):
-        print("Aqui é a que recebe de outra")
-        return super().SyncAgendas(request, context)
+        print("Aqui é recebe a atualização que aconteceu em outra")
+        repository = Repository.get_instace()
+        local_agenda = repository.get_agenda()
+        repository.replace_all_with_sync(request)
+        response = sync_models.SyncResponse(isSuccess=True, description=f"{local_agenda} atualizada com sucesso!")
+        return response
     
     def SyncFromOthers(self, request, context):
-        print("Ta peganso as informações")
-        return sync_models.SyncContactsList()
+        repository = Repository.get_instace()
+        contacts = repository.get_all_sync()
+        response = sync_models.SyncContactsList(contacts=contacts)
+        return response
 
 def start_agenda_sync_server(port):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=100))

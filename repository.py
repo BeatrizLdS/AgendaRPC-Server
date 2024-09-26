@@ -1,7 +1,7 @@
 import gRPCModels.agenda.agenda_pb2 as agenda_models
 import gRPCModels.sync.agendas_sync_pb2 as sync_models
 from model.contact import Contact
-from typing import List, Set
+import services
 
 class Repository:
     _instance = None
@@ -14,7 +14,7 @@ class Repository:
     
     def init(self, agenda):
         self._agenda = agenda
-        self.contacts = set()
+        self.contacts = []
         
     def get_agenda(self):
         return self._agenda
@@ -29,7 +29,8 @@ class Repository:
         newContact = Contact(contact.name, contact.phone)
         exists = newContact in self.contacts
         if exists == False:
-            self.contacts.add(newContact)
+            self.contacts.append(newContact)
+            services.sync_agendas_service.sync_agendas()
             return True
         return False
         
@@ -37,6 +38,7 @@ class Repository:
         appContact = self.convert_protobuf_to_app_contact(contact)    
         if appContact in self.contacts:
             self.contacts.remove(appContact)
+            services.sync_agendas_service.sync_agendas()
             return True
         return False
     
@@ -74,6 +76,7 @@ class Repository:
     
     def replace_all_with_sync(self, contacts):
         newList = [self.convert_sync_protobuf_to_app_contact(contact) for contact in contacts.contacts]
+        print(f"contacts to update: {newList}")
         self.contacts = newList
     
     def update_contact(self, contact):
@@ -81,7 +84,8 @@ class Repository:
         for existing_contact in self.contacts:
             if existing_contact == appContact:
                 self.contacts.remove(existing_contact)
-                self.contacts.add(appContact)
+                self.contacts.append(appContact)
+                services.sync_agendas_service.sync_agendas()
                 return True
         return False
         
